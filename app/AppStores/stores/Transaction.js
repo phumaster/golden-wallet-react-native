@@ -30,6 +30,7 @@ const defaultData = {
 
 export default class Transaction {
   rate = new BigNumber(0)
+  walletType = 'ethereum'
 
   static generateUnspendTransaction(obj, token) {
     const transaction = { ...obj, status: 0 }
@@ -70,7 +71,9 @@ export default class Transaction {
   }
 
   get isSent() {
-    return this.from.toLocaleLowerCase() === MainStore.appState.selectedWallet.address.toLocaleLowerCase()
+    const { selectedWallet } = MainStore.appState
+    const address = this.address ? this.address : selectedWallet.address
+    return this.from.toLocaleLowerCase() === address.toLocaleLowerCase()
   }
 
   get type() {
@@ -127,10 +130,11 @@ export default class Transaction {
     try {
       const result = await api.checkTxHasBeenDroppedOrFailed(this.hash)
       if (result === 'notBroadCast') {
-        const oneHour = 60 * 60 * 1000
-        const hoursFromCreated = (new Date().getTime() - (this.timeStamp * 1000)) / oneHour
+        // const oneHour = 60 * 60 * 1000
+        // const hoursFromCreated = (new Date().getTime() - (this.timeStamp * 1000)) / oneHour
 
-        return hoursFromCreated > 4
+        const minsFromCreated = (new Date().getTime() - (this.timeStamp * 1000)) / (60 * 1000)
+        return minsFromCreated > 5
       }
       return result
     } catch (_) {

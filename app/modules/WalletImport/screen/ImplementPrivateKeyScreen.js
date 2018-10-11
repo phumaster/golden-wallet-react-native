@@ -6,29 +6,30 @@ import {
   Dimensions,
   Platform,
   TextInput,
-  Keyboard,
-  Animated,
-  TouchableWithoutFeedback,
   Clipboard,
   TouchableOpacity,
   Image,
   SafeAreaView
 } from 'react-native'
 import PropTypes from 'prop-types'
+import { observer } from 'mobx-react/native'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import constant from '../../../commons/constant'
 import images from '../../../commons/images'
 import AppStyle from '../../../commons/AppStyle'
 import ActionButton from '../../../components/elements/ActionButton'
-import Checker from '../../../Handler/Checker'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import BottomButton from '../../../components/elements/BottomButton'
-import NavStore from '../../../AppStores/NavStore'
 import MainStore from '../../../AppStores/MainStore'
+import ImplementPrivateKeyStore from '../stores/ImplementPrivateKeyStore'
+import KeyboardView from '../../../components/elements/KeyboardView'
+import TouchOutSideDismissKeyboard from '../../../components/elements/TouchOutSideDismissKeyboard'
+import NavStore from '../../../AppStores/NavStore'
 
 const marginTop = LayoutUtils.getExtraTop()
 const { width } = Dimensions.get('window')
 
+@observer
 export default class ImplementPrivateKeyScreen extends Component {
   static propTypes = {
     navigation: PropTypes.object
@@ -38,70 +39,50 @@ export default class ImplementPrivateKeyScreen extends Component {
     navigation: {}
   }
 
-  state = {
-    extraHeight: new Animated.Value(0),
-    privateKey: ''
+  constructor(props) {
+    super(props)
+    this.implementPrivateKeyStore = new ImplementPrivateKeyStore()
   }
 
-  componentWillMount() {
-    const show = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    this.keyboardDidShowListener = Keyboard.addListener(show, e => this._keyboardDidShow(e))
-    this.keyboardDidHideListener = Keyboard.addListener(hide, e => this._keyboardDidHide(e))
+  onChangePrivateKey = (text) => {
+    this.implementPrivateKeyStore.setPrivateKey(text)
   }
 
-  componentDidMount() {
-  }
-
-  componentWillUnmount() {
-    this.keyboardDidShowListener.remove()
-    this.keyboardDidHideListener.remove()
-  }
-
-  get selectedWallet() {
-    return MainStore.appState.selectedWallet
-  }
-
-  _runExtraHeight(toValue) {
-    Animated.timing(
-      // Animate value over time
-      this.state.extraHeight, // The value to drive
-      {
-        toValue: -toValue, // Animate to final value of 1
-        duration: 250,
-        useNativeDriver: true
-      }
-    ).start()
-  }
-
-  _keyboardDidShow(e) {
-    if (e.endCoordinates.screenY < 437 + marginTop) {
-      this._runExtraHeight(437 + marginTop - e.endCoordinates.screenY)
+  onPaste = async () => {
+    const content = await Clipboard.getString()
+    if (content) {
+      this.implementPrivateKeyStore.setPrivateKey(content)
     }
   }
 
-  _keyboardDidHide(e) {
-    this._runExtraHeight(0)
+  onBack = () => {
+    NavStore.goBack()
+  }
+
+  get selectedWallet() {
+    const { index } = this.props.navigation.state.params
+    return MainStore.appState.wallets[index]
+  }
+
+  gotoScanQRCode = () => {
+    setTimeout(() => {
+      NavStore.pushToScreen('ScanQRCodeScreen', {
+        title: 'Scan Private Key',
+        marginTop,
+        returnData: this.returnData.bind(this)
+      })
+    }, 300)
   }
 
   returnData(codeScanned) {
-    this.setState({
-      privateKey: codeScanned
-    })
+    this.implementPrivateKeyStore.setPrivateKey(codeScanned)
   }
 
   _renderPasteButton() {
     return (
       <View style={{ position: 'absolute', right: 0 }}>
         <TouchableOpacity
-          onPress={async () => {
-            const content = await Clipboard.getString()
-            if (content) {
-              this.setState({
-                privateKey: content
-              })
-            }
-          }}
+          onPress={this.onPaste}
         >
           <View style={{ padding: 15 }}>
             <Text style={styles.pasteText}>Paste</Text>
@@ -112,9 +93,7 @@ export default class ImplementPrivateKeyScreen extends Component {
   }
 
   clearText = () => {
-    this.setState({
-      privateKey: ''
-    })
+    this.implementPrivateKeyStore.setPrivateKey('')
   }
 
   _renderClearButton() {
@@ -127,52 +106,17 @@ export default class ImplementPrivateKeyScreen extends Component {
     )
   }
 
-  _checkInvalidKeyStore() {
-    const { privateKey } = this.state
-    if (privateKey === '') {
-      return true
-    }
-    if (!Checker.checkPrivateKey(privateKey)) {
-      // NavStore.popupCustom.show('Invalid private key')
-      return true
-    }
-    return false
-  }
-
   _handleConfirm = async () => {
-    const { privateKey } = this.state
-    if (privateKey === '') {
-      NavStore.popupCustom.show('Private key can not be empty')
-      return
-    }
-    if (!Checker.checkPrivateKey(privateKey)) {
-      NavStore.popupCustom.show('Invalid private key')
-      return
-    }
-    const ds = MainStore.secureStorage
-    try {
-      await this.selectedWallet.implementPrivateKey(ds, privateKey)
-      MainStore.appState.syncWallets()
-      NavStore.goBack()
-    } catch (e) {
-      NavStore.popupCustom.show(e.message)
-    }
+    this.implementPrivateKeyStore.implementPrivateKey(this.selectedWallet)
   }
 
   render() {
-    const { navigation } = this.props
-    const { privateKey } = this.state
+    const { privateKey, isReadyCreate, isErrorPrivateKey } = this.implementPrivateKeyStore
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss() }}>
+        <TouchOutSideDismissKeyboard >
           <View style={styles.container}>
-            <Animated.View
-              style={[styles.container, {
-                transform: [
-                  { translateY: this.state.extraHeight }
-                ]
-              }]}
-            >
+            <KeyboardView style={styles.container}>
               <NavigationHeader
                 style={{ marginTop: marginTop + 20, width }}
                 headerItem={{
@@ -180,9 +124,7 @@ export default class ImplementPrivateKeyScreen extends Component {
                   icon: null,
                   button: images.backButton
                 }}
-                action={() => {
-                  navigation.goBack()
-                }}
+                action={this.onBack}
               />
               <View style={{ marginTop: 25 }}>
                 <TextInput
@@ -194,15 +136,14 @@ export default class ImplementPrivateKeyScreen extends Component {
                   style={[
                     styles.textInput
                   ]}
-                  onChangeText={(text) => {
-                    this.setState({
-                      privateKey: text
-                    })
-                  }}
-                  value={this.state.privateKey}
+                  onChangeText={this.onChangePrivateKey}
+                  value={privateKey}
                 />
                 {privateKey === '' && this._renderPasteButton()}
                 {privateKey !== '' && this._renderClearButton()}
+                {isErrorPrivateKey &&
+                  <Text style={styles.errorText}>{constant.INVALID_PRIVATE_KEY}</Text>
+                }
               </View>
               <View style={styles.actionButton}>
                 <ActionButton
@@ -214,24 +155,16 @@ export default class ImplementPrivateKeyScreen extends Component {
                   }}
                   styleText={{ color: AppStyle.mainTextColor }}
                   styleIcon={{ tintColor: AppStyle.mainTextColor }}
-                  action={() => {
-                    setTimeout(() => {
-                      navigation.navigate('ScanQRCodeScreen', {
-                        title: 'Scan Private Key',
-                        marginTop,
-                        returnData: this.returnData.bind(this)
-                      })
-                    }, 300)
-                  }}
+                  action={this.gotoScanQRCode}
                 />
               </View>
-            </Animated.View>
+            </KeyboardView>
             <BottomButton
               onPress={this._handleConfirm}
-              disable={this._checkInvalidKeyStore()}
+              disable={!isReadyCreate}
             />
           </View>
-        </TouchableWithoutFeedback>
+        </TouchOutSideDismissKeyboard>
       </SafeAreaView>
     )
   }
@@ -271,7 +204,6 @@ const styles = StyleSheet.create({
     fontFamily: 'OpenSans-Semibold',
     color: AppStyle.errorColor,
     alignSelf: 'flex-start',
-    marginLeft: 20,
     marginTop: 10
   }
 })

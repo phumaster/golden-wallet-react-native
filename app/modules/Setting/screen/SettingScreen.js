@@ -5,8 +5,10 @@ import {
   ScrollView,
   Text,
   FlatList,
-  Platform
+  Platform,
+  Linking
 } from 'react-native'
+import Permissions from 'react-native-permissions'
 import { observer } from 'mobx-react/native'
 import AppStyle from '../../../commons/AppStyle'
 import SettingItem from '../elements/SettingItem'
@@ -47,9 +49,13 @@ export default class SettingScreen extends Component {
 
   onNetworkPress = () => NavStore.pushToScreen('NetworkScreen')
 
-  onNotificationSwitch = (isEnable) => {
-    this.appSettingStore.switchEnableNotification(isEnable)
+  onNotificationSwitch = () => {
+    Platform.OS === 'ios' ? Permissions.openSettings() : Linking.openURL('settings://notification/golden')
   }
+
+  // onNotificationSwitch = (isEnable) => {
+  //   this.appSettingStore.switchEnableNotification(isEnable)
+  // }
 
   renderCommunity = () => (
     <FlatList
@@ -138,7 +144,7 @@ export default class SettingScreen extends Component {
             onPress={this.onAddressBookPress}
           />
           {this.renderCommunity()}
-          {/* {this.renderSecurity()} */}
+          {this.renderSecurity()}
           {this.renderAppSetting()}
           {this.renderAbount()}
         </View>

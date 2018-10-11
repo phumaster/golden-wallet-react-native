@@ -1,8 +1,9 @@
 import { observable, action, computed } from 'mobx'
-import lodash from 'lodash'
+import shuffle from 'lodash.shuffle'
 import HapticHandler from '../../Handler/HapticHandler'
 import NavStore from '../../AppStores/NavStore'
 import MainStore from '../../AppStores/MainStore'
+import AppStyle from '../../commons/AppStyle'
 
 export default class BackupStore {
   @observable.ref mnemonic = null
@@ -18,7 +19,7 @@ export default class BackupStore {
 
   @action setup() {
     this.obj = {
-      listKeywordRandom: lodash.shuffle(this.listMnemonic),
+      listKeywordRandom: shuffle(this.listMnemonic),
       listKeyWordChoose: this.listMnemonic.map(str => ''),
       buttonStates: this.listMnemonic.map(str => true)
     }
@@ -30,6 +31,7 @@ export default class BackupStore {
     if (word === '') {
       return
     }
+    HapticHandler.ImpactLight()
     const newObj = this.obj
     const index = newObj.listKeywordRandom.indexOf(word)
     newObj.buttonStates[index] = true
@@ -43,9 +45,9 @@ export default class BackupStore {
     }
   }
 
-  @action addWord = (word) => {
+  @action addWord = (word, index) => {
+    HapticHandler.ImpactLight()
     const newObj = this.obj
-    const index = newObj.listKeywordRandom.indexOf(word)
     newObj.buttonStates[index] = false
     for (let i = 0; i < this.obj.listKeyWordChoose.length; ++i) {
       if (newObj.listKeyWordChoose[i] === '') {
@@ -66,11 +68,19 @@ export default class BackupStore {
       NavStore.pushToScreen('BackupFinishScreen')
     } else {
       HapticHandler.ImpactLight()
-      NavStore.popupCustom.show('Mnemonic incorrect')
+      NavStore.showToastTop('The order is not correct!', { backgroundColor: AppStyle.errorColor }, { color: 'white' })
     }
   }
 
   @action gotoHome() {
     NavStore.pushToScreen('HomeScreen')
+  }
+
+  @computed get isReadyConfirm() {
+    const keywordUnChooses = this.obj.listKeyWordChoose.find(str => str === '')
+    if (keywordUnChooses === '') {
+      return false
+    }
+    return true
   }
 }

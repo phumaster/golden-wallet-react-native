@@ -7,27 +7,26 @@ import {
   Platform,
   TextInput,
   Keyboard,
-  Animated,
-  TouchableWithoutFeedback,
   TouchableOpacity,
   Image,
   Clipboard,
   SafeAreaView
 } from 'react-native'
-import PropTypes from 'prop-types'
 import { observer } from 'mobx-react/native'
+import PropTypes from 'prop-types'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import Spinner from '../../../components/elements/Spinner'
-import Starypto from '../../../../Libs/react-native-starypto'
 import BottomButton from '../../../components/elements/BottomButton'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import images from '../../../commons/images'
-import NavStore from '../../../AppStores/NavStore'
 import AppStyle from '../../../commons/AppStyle'
 import ImportMnemonicStore from '../stores/ImportMnemonicStore'
 import ActionButton from '../../../components/elements/ActionButton'
 import constant from '../../../commons/constant'
 import MainStore from '../../../AppStores/MainStore'
+import KeyboardView from '../../../components/elements/KeyboardView'
+import NavStore from '../../../AppStores/NavStore'
+import TouchOutSideDismissKeyboard from '../../../components/elements/TouchOutSideDismissKeyboard'
 
 const marginTop = LayoutUtils.getExtraTop()
 const { width } = Dimensions.get('window')
@@ -46,22 +45,10 @@ export default class ImportViaMnemonicScreen extends Component {
     super(props)
     MainStore.importMnemonicStore = new ImportMnemonicStore()
     this.importMnemonicStore = MainStore.importMnemonicStore
-    this.extraHeight = new Animated.Value(0)
   }
 
-  componentWillMount() {
-    const show = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    this.keyboardDidShowListener = Keyboard.addListener(show, e => this._keyboardDidShow(e))
-    this.keyboardDidHideListener = Keyboard.addListener(hide, e => this._keyboardDidHide(e))
-  }
-
-  componentDidMount() {
-  }
-
-  componentWillUnmount() {
-    this.keyboardDidShowListener.remove()
-    this.keyboardDidHideListener.remove()
+  onBack = () => {
+    NavStore.goBack()
   }
 
   onChangeMnemonic = (text) => {
@@ -77,28 +64,6 @@ export default class ImportViaMnemonicScreen extends Component {
 
   returnData(codeScanned) {
     this.importMnemonicStore.onChangeMnemonic(codeScanned)
-  }
-
-  _runExtraHeight(toValue) {
-    Animated.timing(
-      // Animate value over time
-      this.extraHeight, // The value to drive
-      {
-        toValue: -toValue, // Animate to final value of 1
-        duration: 250,
-        useNativeDriver: true
-      }
-    ).start()
-  }
-
-  _keyboardDidShow(e) {
-    if (e.endCoordinates.screenY < 437 + marginTop) {
-      this._runExtraHeight(437 + marginTop - e.endCoordinates.screenY)
-    }
-  }
-
-  _keyboardDidHide(e) {
-    this._runExtraHeight(0)
   }
 
   _renderPasteButton() {
@@ -132,21 +97,16 @@ export default class ImportViaMnemonicScreen extends Component {
   _handleConfirm = () => {
     Keyboard.dismiss()
     const { navigation } = this.props
-    const { mnemonic } = this.importMnemonicStore
-    if (!Starypto.validateMnemonic(mnemonic)) {
-      NavStore.popupCustom.show('Invalid mnemonic')
-      return
-    }
-    this.importMnemonicStore.generateWallets()
+    const { coin } = navigation.state.params
+    this.importMnemonicStore.generateWallets(coin)
       .then((res) => {
-        navigation.navigate('ChooseAddressScreen')
+        NavStore.pushToScreen('ChooseAddressScreen', { coin })
       })
   }
 
   gotoScan = () => {
-    const { navigation } = this.props
     setTimeout(() => {
-      navigation.navigate('ScanQRCodeScreen', {
+      NavStore.pushToScreen('ScanQRCodeScreen', {
         title: 'Scan Mnemonic Phrase',
         marginTop,
         returnData: this.returnData.bind(this)
@@ -155,32 +115,23 @@ export default class ImportViaMnemonicScreen extends Component {
   }
 
   render() {
-    const { navigation } = this.props
     const {
       mnemonic, loading, errorMnemonic, isReadyCreate
     } = this.importMnemonicStore
 
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss() }}>
+        <TouchOutSideDismissKeyboard >
           <View style={styles.container}>
-            <Animated.View
-              style={[styles.container, {
-                transform: [
-                  { translateY: this.extraHeight }
-                ]
-              }]}
-            >
+            <KeyboardView style={styles.container} >
               <NavigationHeader
                 style={{ marginTop: marginTop + 20, width }}
                 headerItem={{
-                  title: 'Add Mnemonic Phrases',
+                  title: 'Add Mnemonic Phrase',
                   icon: null,
                   button: images.backButton
                 }}
-                action={() => {
-                  navigation.goBack()
-                }}
+                action={this.onBack}
               />
               <View style={{ marginTop: 25 }}>
                 <TextInput
@@ -213,7 +164,7 @@ export default class ImportViaMnemonicScreen extends Component {
                   action={this.gotoScan}
                 />
               </View>
-            </Animated.View>
+            </KeyboardView>
             <BottomButton
               disable={!isReadyCreate}
               onPress={this._handleConfirm}
@@ -222,7 +173,7 @@ export default class ImportViaMnemonicScreen extends Component {
               <Spinner />
             }
           </View>
-        </TouchableWithoutFeedback>
+        </TouchOutSideDismissKeyboard>
       </SafeAreaView>
     )
   }

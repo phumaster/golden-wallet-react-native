@@ -19,20 +19,16 @@ import PropTypes from 'prop-types'
 import Modal from 'react-native-modalbox'
 import AppStyle from '../../../commons/AppStyle'
 import images from '../../../commons/images'
-import LayoutUtils from '../../../commons/LayoutUtils'
-import ScanQRCodeScreen from './ScanQRCodeScreen'
 import ChooseAddressScreen from './ChooseAddressScreen'
-import ConfirmScreen from './ConfirmScreen'
 import Checker from '../../../Handler/Checker'
 import MainStore from '../../../AppStores/MainStore'
 import BottomButton from '../../../components/elements/BottomButton'
+import LayoutUtils from '../../../commons/LayoutUtils'
+import MixpanelHandler from '../../../Handler/MixpanelHandler'
 
 const { width, height } = Dimensions.get('window')
 const marginTop = Platform.OS === 'ios' ? getStatusBarHeight() : 20
-// const isSmallScreen = height < 569
-const isIPX = height === 812
-// const extraTop = LayoutUtils.getExtraTop()
-const extraBottom = LayoutUtils.getExtraBottom()
+const isIPX = LayoutUtils.getIsIPX()
 
 @observer
 export default class AdressInputScreen extends Component {
@@ -61,6 +57,14 @@ export default class AdressInputScreen extends Component {
     this.keyboardDidHideListener.remove()
   }
 
+  onBack = () => {
+    this.props.navigation.goBack()
+  }
+
+  onTouchDismissKeyboard = () => {
+    Keyboard.dismiss()
+  }
+
   _runExtraHeight(toValue) {
     Animated.timing(
       // Animate value over time
@@ -74,7 +78,6 @@ export default class AdressInputScreen extends Component {
   }
 
   _keyboardDidShow(e) {
-    this.confirm && this.confirm._keyboardDidShow(e)
     if (this.addressInput.isFocused()) {
       if (e.endCoordinates.screenY < 437 + marginTop) {
         this._runExtraHeight(437 + marginTop - e.endCoordinates.screenY)
@@ -83,7 +86,6 @@ export default class AdressInputScreen extends Component {
   }
 
   _keyboardDidHide(e) {
-    this.confirm && this.confirm._keyboardDidHide(e)
     this._runExtraHeight(0)
   }
 
@@ -91,13 +93,7 @@ export default class AdressInputScreen extends Component {
     return (
       <View style={{ position: 'absolute', right: 20, top: 0 }}>
         <TouchableOpacity
-          onPress={async () => {
-            const content = await Clipboard.getString()
-            if (content) {
-              addressInputStore.setAddress(content)
-              addressInputStore.validateAddress()
-            }
-          }}
+          onPress={this.actionPaste}
         >
           <View style={{ padding: 15 }}>
             <Text style={styles.pasteText}>Paste</Text>
@@ -107,15 +103,21 @@ export default class AdressInputScreen extends Component {
     )
   }
 
-  handleConfirm = () => {
+  actionPaste = async () => {
     const { addressInputStore } = MainStore.sendTransaction
-    Keyboard.dismiss()
-    addressInputStore.onConfirm()
-    // if (Checker.checkAddress(address)) {
-    //   this.confirmModal && this.confirmModal.open()
-    // }
-    const { confirmModal } = MainStore.sendTransaction.addressInputStore
-    confirmModal && confirmModal.open()
+    const content = await Clipboard.getString()
+    if (content) {
+      addressInputStore.setAddress(content)
+      addressInputStore.validateAddress()
+    }
+  }
+
+  handleConfirm = () => {
+    MainStore.sendTransaction.goToConfirm()
+    if (MainStore.sendTransaction.completeStep === 1) {
+      MainStore.sendTransaction.setCompleteStep(2)
+      MainStore.appState.mixpanleHandler.track(MixpanelHandler.eventName.COMPLETE_SEND_TO)
+    }
   }
 
   gotoScan = () => {
@@ -132,6 +134,7 @@ export default class AdressInputScreen extends Component {
   clearText = () => {
     const { addressInputStore } = MainStore.sendTransaction
     addressInputStore.setAddress('')
+    addressInputStore.setCount(0)
     addressInputStore.setDisableSend(true)
   }
 
@@ -145,18 +148,24 @@ export default class AdressInputScreen extends Component {
     )
   }
 
+  openScanQRCode = () => {
+    Keyboard.dismiss()
+    this.gotoScan()
+  }
+
+  openAddressModal = () => {
+    Keyboard.dismiss()
+    const { addressModal } = MainStore.sendTransaction.addressInputStore
+    addressModal && addressModal.open()
+  }
+
   _renderButton = () => {
     return (
       <View
         style={[styles.buttonContainer]}
       >
         <TouchableOpacity
-          onPress={() => {
-            Keyboard.dismiss()
-            // const { qrCodeModal } = MainStore.sendTransaction.addressInputStore
-            // qrCodeModal && qrCodeModal.open()
-            this.gotoScan()
-          }}
+          onPress={this.openScanQRCode}
         >
           <View
             style={styles.button}
@@ -166,16 +175,11 @@ export default class AdressInputScreen extends Component {
             >
               Scan QR Code
             </Text>
-            {/* <Image source={images.icon_qrcode2} style={styles.buttonIcon} /> */}
           </View>
         </TouchableOpacity>
         <View style={styles.line} />
         <TouchableOpacity
-          onPress={() => {
-            Keyboard.dismiss()
-            const { addressModal } = MainStore.sendTransaction.addressInputStore
-            addressModal && addressModal.open()
-          }}
+          onPress={this.openAddressModal}
         >
           <View
             style={styles.button}
@@ -185,7 +189,6 @@ export default class AdressInputScreen extends Component {
             >
               Address Book
             </Text>
-            {/* <Image source={images.addressIcon} style={styles.buttonIcon} /> */}
           </View>
         </TouchableOpacity>
       </View>
@@ -195,33 +198,14 @@ export default class AdressInputScreen extends Component {
   _renderAddressModal = (addressInputStore) => {
     return (
       <Modal
-        style={{
-          height: isIPX ? height - 150 : height - 80,
-          zIndex: 20,
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
-          overflow: 'hidden',
-          backgroundColor: AppStyle.backgroundColor
-        }}
+        style={styles.modalStyle}
         swipeToClose
-        onClosed={() => {
-
-        }}
         position="bottom"
         ref={(ref) => { MainStore.sendTransaction.addressInputStore.addressModal = ref }}
       >
         <View style={{ flex: 1 }}>
           <View
-            style={{
-              alignSelf: 'center',
-              height: 3,
-              width: 45,
-              borderRadius: 1.5,
-              backgroundColor: AppStyle.secondaryTextColor,
-              position: 'absolute',
-              zIndex: 30,
-              top: 10
-            }}
+            style={styles.chooseAddressScreenStyle}
           />
           <ChooseAddressScreen
             onSelectedAddress={(address) => {
@@ -234,112 +218,54 @@ export default class AdressInputScreen extends Component {
     )
   }
 
-  _renderQRCodeModal = () => {
-    return (
-      <Modal
-        style={{
-          height: isIPX ? height - 150 : height - 80,
-          zIndex: 20,
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
-          overflow: 'hidden',
-          backgroundColor: AppStyle.backgroundColor
-        }}
-        swipeToClose
-        onClosed={() => {
-
-        }}
-        position="bottom"
-        ref={(ref) => { MainStore.sendTransaction.addressInputStore.qrCodeModal = ref }}
-      >
-        <View style={{ flex: 1 }}>
-          <View
-            style={{
-              alignSelf: 'center',
-              height: 3,
-              width: 45,
-              borderRadius: 1.5,
-              backgroundColor: AppStyle.secondaryTextColor,
-              position: 'absolute',
-              zIndex: 30,
-              top: 10
-            }}
-          />
-          <View
-            style={{
-              backgroundColor: AppStyle.backgroundColor,
-              flex: 1,
-              justifyContent: 'center'
-            }}
-          >
-            <ScanQRCodeScreen
-              onCompleted={this._onCompleted}
-            />
-          </View>
-        </View>
-      </Modal>
-    )
-  }
-
   returnData = (address) => {
     const { addressInputStore } = MainStore.sendTransaction
-    const resChecker = Checker.checkAddress(address)
+    const { selectedWallet } = MainStore.appState
+    const resChecker = selectedWallet.type === 'ethereum'
+      ? Checker.checkAddressQR(address)
+      : Checker.checkAddressQRBTC(address)
     if (!resChecker || resChecker.length === 0) {
       addressInputStore.setAddress(address)
       addressInputStore.validateAddress()
     } else {
       addressInputStore.setAddress(resChecker[0])
+      addressInputStore.checkSentTime()
       addressInputStore.setDisableSend(!resChecker)
     }
   }
 
-  _renderConfirmModal = () => {
-    return (
-      <Modal
-        style={{
-          height: isIPX ? 530 : 500 + extraBottom,
-          zIndex: 20,
-          borderTopLeftRadius: 10,
-          borderTopRightRadius: 10,
-          overflow: 'hidden',
-          backgroundColor: AppStyle.backgroundColor
-        }}
-        swipeToClose
-        position="bottom"
-        keyboardTopOffset={isIPX ? 30 : 22}
-        onClosed={() => {
+  renderAlert = () => {
+    const { addressInputStore } = MainStore.sendTransaction
+    const {
+      address,
+      disableSend,
+      countSentTime
+    } = addressInputStore
+    let transactionText = 'transactions'
+    if (countSentTime == 1) {
+      transactionText = 'transaction'
+    }
 
-        }}
-        ref={(ref) => { MainStore.sendTransaction.addressInputStore.confirmModal = ref }}
-      >
-        <View style={{ flex: 1 }}>
-          <View
-            style={{
-              alignSelf: 'center',
-              height: 3,
-              width: 45,
-              borderRadius: 1.5,
-              backgroundColor: AppStyle.secondaryTextColor,
-              position: 'absolute',
-              zIndex: 30,
-              top: 10
-            }}
-          />
-          <View
-            style={{
-              backgroundColor: AppStyle.backgroundColor,
-              flex: 1,
-              paddingTop: 30,
-              paddingBottom: isIPX ? 30 : 0
-            }}
-          >
-            <ConfirmScreen
-              ref={ref => (this.confirm = ref)}
-            />
-          </View>
+    if (disableSend && address !== '') {
+      return (
+        <View
+          style={styles.invalidContainer}
+        >
+          <Text style={styles.invalidText}>Invalid Address</Text>
         </View>
-      </Modal>
-    )
+      )
+    } else if (countSentTime && countSentTime > 0) {
+      return (
+        <View
+          style={styles.invalidContainer}
+        >
+          <Text style={[styles.invalidText, { color: AppStyle.colorUp }]}>
+            {`You have ${countSentTime} successful ${transactionText} with this address`}
+          </Text>
+        </View>
+      )
+    }
+    return null
   }
 
   renderHeader = (value) => {
@@ -349,7 +275,7 @@ export default class AdressInputScreen extends Component {
       >
         <TouchableOpacity
           style={styles.exit}
-          onPress={() => this.props.navigation.goBack()}
+          onPress={this.onBack}
         >
           <Image style={styles.exitBtn} source={images.backButton} resizeMode="contain" />
         </TouchableOpacity>
@@ -373,8 +299,7 @@ export default class AdressInputScreen extends Component {
     return (
       <View style={styles.container}>
         <TouchableWithoutFeedback
-          // style={{ backgroundColor: AppStyle.backgroundColor }}
-          onPress={() => { Keyboard.dismiss() }}
+          onPress={this.onTouchDismissKeyboard}
         >
           <View
             style={styles.viewContainer}
@@ -413,13 +338,7 @@ export default class AdressInputScreen extends Component {
                 {address === '' && this._renderPasteButton(addressInputStore)}
                 {address !== '' && this._renderClearButton()}
               </View>
-              {disableSend && address !== '' &&
-                <View
-                  style={styles.invalidContainer}
-                >
-                  <Text style={styles.invalidText}>Invalid Address</Text>
-                </View>
-              }
+              {this.renderAlert()}
               {this._renderButton()}
             </Animated.View>
             <BottomButton
@@ -430,8 +349,6 @@ export default class AdressInputScreen extends Component {
           </View>
         </TouchableWithoutFeedback>
         {this._renderAddressModal(addressInputStore)}
-        {/* {this._renderQRCodeModal()} */}
-        {this._renderConfirmModal()}
       </View>
     )
   }
@@ -539,5 +456,23 @@ const styles = StyleSheet.create({
     color: '#d0021b',
     fontFamily: 'OpenSans-Semibold',
     fontSize: 14
+  },
+  modalStyle: {
+    height: isIPX ? height - 150 : height - 80,
+    zIndex: 20,
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: AppStyle.backgroundColor
+  },
+  chooseAddressScreenStyle: {
+    alignSelf: 'center',
+    height: 3,
+    width: 45,
+    borderRadius: 1.5,
+    backgroundColor: AppStyle.secondaryTextColor,
+    position: 'absolute',
+    zIndex: 30,
+    top: 10
   }
 })

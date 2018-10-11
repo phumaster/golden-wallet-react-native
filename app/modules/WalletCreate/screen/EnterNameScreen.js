@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   SafeAreaView,
-  TouchableWithoutFeedback,
   Keyboard,
   Dimensions,
   Text
@@ -19,6 +18,7 @@ import AppStyle from '../../../commons/AppStyle'
 import CreateWalletStore from '../CreateWalletStore'
 import Spinner from '../../../components/elements/Spinner'
 import constant from '../../../commons/constant'
+import TouchOutSideDismissKeyboard from '../../../components/elements/TouchOutSideDismissKeyboard'
 
 const { width } = Dimensions.get('window')
 const marginTop = LayoutUtils.getExtraTopAndroid()
@@ -49,7 +49,9 @@ export default class EnterNameScreen extends Component {
   }
 
   handleCreate = () => {
-    this.createWalletStore.handleCreateWallet()
+    const { navigation } = this.props
+    const { coin } = navigation.state.params
+    this.createWalletStore.handleCreateWallet(coin)
   }
 
   renderErrorField = () => {
@@ -64,7 +66,7 @@ export default class EnterNameScreen extends Component {
     const { title, loading, isReadCreate } = this.createWalletStore
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss() }}>
+        <TouchOutSideDismissKeyboard >
           <View style={styles.container}>
             <NavigationHeader
               style={{ marginTop: marginTop + 20, width }}
@@ -91,7 +93,7 @@ export default class EnterNameScreen extends Component {
               <Spinner />
             }
           </View>
-        </TouchableWithoutFeedback>
+        </TouchOutSideDismissKeyboard>
       </SafeAreaView>
     )
   }

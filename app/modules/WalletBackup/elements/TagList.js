@@ -19,7 +19,7 @@ export default class TagList extends Component {
     style: {
       paddingVerticalOfItem: 20,
       numberOfWordInRow: 3,
-      margin: 20,
+      marginHorizontal: 20,
       backgroundColor: '#dfdfdf',
       itemBackgroundColor: '#eeeeee',
       itemFontSize: 14,
@@ -27,7 +27,10 @@ export default class TagList extends Component {
       itemTextColor: '#000',
       fontFamily: 'Helvetica',
       fontWeight: 'regular',
-      marginTop: 0
+      marginTop: 0,
+      marginBottom: 0,
+      backgroundDisable: '#dfdfdf',
+      itemTextColorDisable: '#000'
     },
     arrayMnemonic: [],
     onItemPress: () => { },
@@ -55,15 +58,18 @@ export default class TagList extends Component {
       paddingVerticalOfItem,
       backgroundColor,
       itemBackgroundColor,
-      margin,
+      marginHorizontal,
       itemFontSize,
       itemTextColor,
       fontFamily,
       fontWeight,
-      marginTop
+      marginTop,
+      marginBottom,
+      backgroundDisable,
+      itemTextColorDisable
     } = style
 
-    const itemWidth = (width - paddingVerticalOfItem - margin * 2) / numberOfWordInRow
+    const itemWidth = (width - paddingVerticalOfItem - marginHorizontal * 2) / numberOfWordInRow
     const haflPaddingOfVerticalItem = paddingVerticalOfItem / 2
     const textAlign = isCenter ? { textAlign: 'center' } : {}
     return (
@@ -73,8 +79,9 @@ export default class TagList extends Component {
           flexWrap: 'wrap',
           backgroundColor,
           padding: haflPaddingOfVerticalItem,
-          margin,
+          marginHorizontal,
           marginTop,
+          marginBottom,
           borderRadius: 14
         }}
       >
@@ -86,23 +93,25 @@ export default class TagList extends Component {
             <TouchableOpacity
               onPress={() => {
                 HapticHandler.ImpactLight()
-                onItemPress(str)
+                onItemPress(str, index)
               }}
               disabled={this._checkDisableButton(index)}
               style={{
                 height: width >= 375 ? 32 : 28,
                 borderRadius: 5,
-                backgroundColor: this._checkDisableButton(index) ? backgroundColor : (str === '' ? backgroundColor : itemBackgroundColor),
-                padding: 4,
+                backgroundColor: this._checkDisableButton(index) ? backgroundDisable : (str === '' ? backgroundDisable : itemBackgroundColor),
+                paddingHorizontal: 10,
+                paddingVertical: 4,
                 justifyContent: 'center'
               }}
             >
               <Text
+                allowFontScaling={false}
                 style={[{
                   fontFamily,
                   fontWeight,
-                  color: itemTextColor,
-                  fontSize: itemFontSize
+                  color: this._checkDisableButton(index) ? itemTextColorDisable : itemTextColor,
+                  fontSize: isShowOrder ? itemFontSize - 2 : itemFontSize
                 }, textAlign]}
               >
                 {isShowOrder ? str === '' ? str : `${index + 1}. ${str}` : str}

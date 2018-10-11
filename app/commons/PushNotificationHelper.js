@@ -5,10 +5,9 @@ import NotificationStore from '../AppStores/stores/Notification'
 import MainStore from '../AppStores/MainStore'
 
 class PushNotificationHelper {
-  init() {
-    FCM.getFCMToken().then((token) => {
-      NotificationStore.setDeviceToken(token)
-    })
+  async init() {
+    const token = await FCM.getFCMToken()
+    NotificationStore.setDeviceToken(token)
 
     FCM.setBadgeNumber(0)
 
@@ -17,7 +16,6 @@ class PushNotificationHelper {
         NotificationStore.isInitFromNotification = true
         MainStore.appState.BgJobs.CheckPendingTransaction.doOnce()
         NotificationStore.setCurrentNotif(notif)
-        // NotificationStore.gotoTransactionList()
       }
     })
 
@@ -28,11 +26,11 @@ class PushNotificationHelper {
       if (!notif.tx) {
         return
       }
-
       MainStore.appState.BgJobs.CheckPendingTransaction.doOnce()
       NotificationStore.setCurrentNotif(notif)
       if (notif && notif.opened_from_tray) {
-        NotificationStore.gotoTransactionList()
+        FCM.setBadgeNumber(0)
+        NotificationStore.isOpenFromTray = true
       }
       MainStore.appState.BgJobs.CheckBalance.doOnce(false, false)
       MainStore.appState.BgJobs.CheckBalance.start()
@@ -51,26 +49,20 @@ class PushNotificationHelper {
 
     FCM.removeAllDeliveredNotifications()
 
-    if (Platform.OS === 'android') {
-      if (MainStore.appState.enableNotification) {
-        MainStore.appState.setEnableNotification(true)
-      }
-    } else {
+    if (Platform.OS === 'ios') {
       Permissions.check('notification').then((response) => {
-        if (response === 'authorized') {
-          if (MainStore.appState.enableNotification) {
-            MainStore.appState.setEnableNotification(true)
-          }
-        } else if (response === 'undetermined') {
+        if (response === 'undetermined') {
           this.requestPermission()
-          MainStore.appState.setEnableNotification(true)
-        } else {
-          MainStore.appState.setEnableNotification(false)
         }
       }).catch((e) => {
         console.log(e)
       })
     }
+  }
+
+  async getToken() {
+    const token = await FCM.getFCMToken()
+    return token
   }
 
   requestPermission() {
@@ -81,7 +73,7 @@ class PushNotificationHelper {
     FCM.removeAllDeliveredNotifications()
   }
 
-  setBadgeNumber(number) {
+  resetBadgeNumber() {
     FCM.setBadgeNumber(0)
   }
 

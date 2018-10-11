@@ -1,42 +1,26 @@
 import React, { Component } from 'react'
 import {
   View,
-  FlatList,
-  Platform
+  FlatList
 } from 'react-native'
-import PropsType from 'prop-types'
 import { observer } from 'mobx-react/native'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import TokenItem from '../elements/TokenItem'
 import images from '../../../commons/images'
-import Helper from '../../../commons/Helper'
-import InformationCard from '../elements/InformationCard'
 import AppStyle from '../../../commons/AppStyle'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import ShimmerTokenItem from '../elements/ShimmerTokenItem'
 import MainStore from '../../../AppStores/MainStore'
+import NavStore from '../../../AppStores/NavStore'
+import TokenHeader from '../elements/TokenHeader'
+import MixpanelHandler from '../../../Handler/MixpanelHandler'
 
 const marginTop = LayoutUtils.getExtraTop()
 
 @observer
 export default class TokenScreen extends Component {
-  static propTypes = {
-    navigation: PropsType.object
-  }
-
-  static defaultProps = {
-    navigation: null
-  }
-
-  componentDidMount() {
-    // setInterval(() => {
-    //   this.wallet.isFetchingBalance = !this.wallet.isFetchingBalance
-    // }, 3000)
-  }
-
   onBack = () => {
-    const { navigation } = this.props
-    navigation.goBack()
+    NavStore.goBack()
   }
 
   onRefreshToken = async () => {
@@ -44,56 +28,17 @@ export default class TokenScreen extends Component {
   }
 
   onItemPress = (index) => {
-    const { navigation } = this.props
     MainStore.appState.setselectedToken(this.wallet.tokens[index])
-    MainStore.goToSendTx()
-    MainStore.sendTransaction.changeIsToken(MainStore.appState.selectedToken.symbol !== 'ETH')
-    navigation.navigate('TransactionListScreen')
+    NavStore.pushToScreen('TransactionListScreen')
+  }
+
+  onPressCollectibles = () => {
+    MainStore.appState.mixpanleHandler.track(MixpanelHandler.eventName.VIEW_COLLETIBLES)
+    NavStore.pushToScreen('CollectibleScreen')
   }
 
   get wallet() {
     return MainStore.appState.selectedWallet
-  }
-
-  _renderFooter = (wallet) => {
-    const { isFetchingBalance } = wallet
-    return <ShimmerTokenItem visible={isFetchingBalance} />
-  }
-
-  _renderHeader = (wallet) => {
-    const { totalBalanceETH, totalBalanceDollar } = wallet
-    return (
-      <View style={{ marginBottom: 15 }}>
-        <InformationCard
-          data={{
-            cardItem: this.wallet,
-            titleText: 'Estimated Value',
-            mainSubTitleText: `${Helper.formatETH(totalBalanceETH.toString(10))} ETH`,
-            viceSubTitleText: `$${Helper.formatUSD(totalBalanceDollar.toString(10))}`
-          }}
-          style={{
-            marginTop: 15,
-            marginHorizontal: 20
-          }}
-          titleStyle={{
-            color: '#8A8D97',
-            fontSize: 18,
-            fontFamily: Platform.OS === 'ios' ? 'OpenSans' : 'OpenSans-Regular'
-          }}
-          mainSubTitleStyle={{
-            color: '#E4BF43',
-            fontSize: 30,
-            fontFamily: AppStyle.mainFontBold
-          }}
-          viceSubTitleStyle={{
-            color: '#8A8D97',
-            fontSize: 16,
-            fontFamily: Platform.OS === 'ios' ? 'OpenSans' : 'OpenSans-Regular',
-            marginLeft: 8
-          }}
-        />
-      </View>
-    )
   }
 
   renderItem = ({ item, index }) => {
@@ -115,7 +60,8 @@ export default class TokenScreen extends Component {
     const {
       title,
       tokens,
-      refreshing
+      refreshing,
+      isFetchingBalance
     } = this.wallet
 
     return (
@@ -128,18 +74,19 @@ export default class TokenScreen extends Component {
             button: images.backButton
           }}
           action={this.onBack}
+          rightView={{
+            rightViewIcon: images.iconCollectibles,
+            rightViewAction: this.onPressCollectibles,
+            rightViewTitle: 'Collectibles'
+          }}
         />
         <FlatList
-          style={{
-            flex: 1
-          }}
-          ListHeaderComponent={
-            this._renderHeader(this.wallet)
-          }
-          ListFooterComponent={this._renderFooter(this.wallet)}
+          style={{ flex: 1 }}
+          ListHeaderComponent={<TokenHeader />}
+          ListFooterComponent={<ShimmerTokenItem visible={isFetchingBalance} />}
           data={tokens}
           showsVerticalScrollIndicator={false}
-          keyExtractor={(item, index) => `${item.symbol}-${item.address}`}
+          keyExtractor={(item, _) => `${item.symbol}-${item.address}`}
           refreshing={refreshing}
           onRefresh={this.onRefreshToken}
           renderItem={this.renderItem}

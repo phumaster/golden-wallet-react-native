@@ -8,14 +8,21 @@ import {
   Dimensions,
   Platform
 } from 'react-native'
+import NavigationHeader from '../../../components/elements/NavigationHeader'
 import images from '../../../commons/images'
 import AppStyle from '../../../commons/AppStyle'
 import constant from '../../../commons/constant'
 import HapticHandler from '../../../Handler/HapticHandler'
 import MainStore from '../../../AppStores/MainStore'
+import LayoutUtils from '../../../commons/LayoutUtils'
+import MixpanelHandler from '../../../Handler/MixpanelHandler'
 
-const { width, height } = Dimensions.get('window')
-const isIPX = height === 812
+const { width } = Dimensions.get('window')
+const isIPX = LayoutUtils.getIsIPX()
+const marginTop = LayoutUtils.getExtraTop()
+
+const subtext = 'Make sure to keep your Recovery Phrase safely. Be your own bank and take security seriously.'
+const maintext = 'Backup Complete! '
 
 export default class CreateWalletScreen extends Component {
   componentDidMount() {
@@ -23,23 +30,27 @@ export default class CreateWalletScreen extends Component {
   }
 
   gotoHome = () => {
+    MainStore.appState.mixpanleHandler.track(MixpanelHandler.eventName.BACKUP_SUCCESS)
     MainStore.backupStore.gotoHome()
   }
 
   render() {
     return (
       <View style={styles.container}>
+        <NavigationHeader
+          style={{ marginTop: marginTop + 20, width }}
+          headerItem={{
+            title: null,
+            icon: null,
+            button: images.closeButton
+          }}
+          action={this.gotoHome}
+        />
         <Image
           source={images.imgLock}
         />
-        <Text
-          style={styles.textDes}
-        >
-          Remember to keep your Mnemonic
-          phrase in a safe place. You will need it to
-          restore your wallet. Be your own bank
-          and take security seriously.
-        </Text>
+        <Text style={styles.maintext}>{maintext}</Text>
+        <Text style={styles.textDes}>{subtext}</Text>
         <View style={{ position: 'absolute', left: 20, bottom: isIPX ? 40 : 20 }}>
           <TouchableOpacity
             style={styles.buttonGotIt}
@@ -58,8 +69,13 @@ export default class CreateWalletScreen extends Component {
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    justifyContent: 'center',
     flex: 1
+  },
+  maintext: {
+    fontSize: 18,
+    fontFamily: 'OpenSans-Bold',
+    color: AppStyle.mainTextColor,
+    marginTop: 20
   },
   textDes: {
     fontSize: 16,
@@ -67,7 +83,7 @@ const styles = StyleSheet.create({
     color: AppStyle.secondaryTextColor,
     paddingHorizontal: 30,
     textAlign: 'center',
-    marginBottom: 50
+    marginTop: 40
   },
   buttonGotIt: {
     width: width - 40,

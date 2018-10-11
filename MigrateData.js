@@ -1,9 +1,10 @@
 import { AsyncStorage } from 'react-native'
 import { randomBytes } from 'react-native-randombytes'
 import * as Keychain from 'react-native-keychain'
-import Starypto from './Libs/react-native-starypto'
 import MainStore from './app/AppStores/MainStore'
-import Wallet from './app/AppStores/stores/Wallet'
+import { ETHWallet, getWalletsFromMnemonic, importAddress, importPrivateKey } from './app/AppStores/stores/Wallet'
+import { encryptString, decryptString } from './app/Utils/DataCrypto'
+import SecureDS from './app/AppStores/DataSource/SecureDS'
 
 const KeyLocal = {
   PIN_CODE: 'PIN_CODE',
@@ -16,13 +17,13 @@ class MigrateData {
     const credentials = await Keychain.getGenericPassword()
     if (!(credentials && credentials.username)) {
       const randomStr = randomBytes(16).toString('hex').slice(0, 16)
-      const randomStrEncrypted = Starypto.encryptString(randomStr, pinCode, iv, 'aes-256-cbc')
+      const randomStrEncrypted = encryptString(randomStr, pinCode, iv, 'aes-256-cbc')
       Keychain.setGenericPassword(KeyLocal.IV_CODE, randomStrEncrypted)
       return randomStrEncrypted
     }
     let randomKey = credentials.password
     if (randomKey.length === 16) {
-      randomKey = Starypto.encryptString(randomKey, pinCode, iv, 'aes-256-cbc')
+      randomKey = encryptString(randomKey, pinCode, iv, 'aes-256-cbc')
       Keychain.setGenericPassword(KeyLocal.IV_CODE, randomKey)
     }
     return randomKey
@@ -35,7 +36,7 @@ class MigrateData {
 
   getDecryptedRandomKey = async (pinCode, iv) => {
     const dataEncrypted = await this.getRandomKeyFromKeychain(pinCode, iv)
-    const dataDecrypted = Starypto.decryptString(dataEncrypted, pinCode, iv, 'aes-256-cbc')
+    const dataDecrypted = decryptString(dataEncrypted, pinCode, iv, 'aes-256-cbc')
     this.randomKey = dataDecrypted
     return dataDecrypted
   }
@@ -48,7 +49,7 @@ class MigrateData {
         if (!dataEncryptedFromStorage) {
           return resolve()
         }
-        const dataDecrypted = Starypto.decryptString(dataEncryptedFromStorage, randomKeyDecrypted, iv, 'aes-256-cbc')
+        const dataDecrypted = decryptString(dataEncryptedFromStorage, randomKeyDecrypted, iv, 'aes-256-cbc')
         if (shouldLoadData) {
           // WalletStore.fetchUserWallet(dataDecrypted)
         }
@@ -64,7 +65,7 @@ class MigrateData {
   }
 
   handleCreateWallet(wlObj, ds) {
-    const wallet = new Wallet(wlObj, ds)
+    const wallet = new ETHWallet(wlObj, ds)
     wallet.title = wlObj.cardName
     wallet.didBackup = wlObj.isBackup ? true : false
     return wallet
@@ -83,12 +84,12 @@ class MigrateData {
     try {
       const decriptDataObj = JSON.parse(decriptData)
 
-      const secureDS = MainStore.secureStorage
+      const secureDS = new SecureDS(pincode)
       const tmpWallets = decriptDataObj.ethWallets ? decriptDataObj.ethWallets : []
       if (decriptDataObj.mnemonic && tmpWallets.length > 0) {
-        const mnemonicCipher = Starypto.encryptString(decriptDataObj.mnemonic, password, iv, 'aes-256-cbc')
+        const mnemonicCipher = encryptString(decriptDataObj.mnemonic, password, iv, 'aes-256-cbc')
         await AsyncStorage.setItem('secure-mnemonic', mnemonicCipher)
-        const mnWallets = await Wallet.getWalletsFromMnemonic(decriptDataObj.mnemonic)
+        const mnWallets = await getWalletsFromMnemonic(decriptDataObj.mnemonic)
 
         for (let j = 0; j < tmpWallets.length; j++) {
           const index = mnWallets.findIndex(item => item.address.toLowerCase() === tmpWallets[j].address.toLowerCase())
@@ -103,10 +104,10 @@ class MigrateData {
           MainStore.appState.setCurrentWalletIndex(item.index + 1)
         } else {
           if (item.importType === 'Address') {
-            wallet = Wallet.importAddress(item.address, item.cardName, secureDS)
+            wallet = importAddress(item.address, item.cardName, secureDS)
           }
           if (item.importType !== 'Address' && item.privateKey) {
-            wallet = Wallet.importPrivateKey(item.privateKey, item.cardName, secureDS)
+            wallet = importPrivateKey(item.privateKey, item.cardName, secureDS)
           }
         }
         await wallet.save()
@@ -114,7 +115,7 @@ class MigrateData {
 
       AsyncStorage.removeItem(KeyLocal.DATA_ENCRYPTED)
       MainStore.appState.save()
-      MainStore.appState.syncWallets()
+      MainStore.appState.appWalletsStore.getWalletFromDS()
     } catch (error) {
       // console.error(error)
     }

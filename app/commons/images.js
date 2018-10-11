@@ -15,6 +15,7 @@ export default {
   backgroundBlack: require('./../assets/images/background_black.png'),
   backgroundWhite: require('./../assets/images/background_white.png'),
   imgCardETH: require('./../assets/images/img_card_eth.png'),
+  imgCardBTC: require('./../assets/images/img_card_btc.png'),
   iconQrCode: require('./../assets/images/icon_qr_code.png'),
   iconSend: require('./../assets/images/icon_send.png'),
   iconAdd: require('./../assets/images/icon_add.png'),
@@ -71,6 +72,21 @@ export default {
   iconAddPhoto: require('./../assets/images/icon_add_photo.png'),
   // iconAddPhoto: require('./../assets/images/icon_add_photo.png'),
   iconFlashOn: require('./../assets/images/ic_flash.png'),
-  iconFlashOff: require('./../assets/images/ic_off_flash.png')
-
+  iconFlashOff: require('./../assets/images/ic_off_flash.png'),
+  noWalletImage: require('./../assets/images/img_wallet.png'),
+  iconInfo: require('./../assets/images/ic_info.png'),
+  backupNoteBook: require('./../assets/images/backup_note_book.png'),
+  scanFrame: require('./../assets/images/scan_frame.png'),
+  iconDown: require('./../assets/images/icon_down.png'),
+  iconUp: require('./../assets/images/icon_up.png'),
+  imgEnrase: require('../assets/images/img_enrase.png'),
+  iconCollectibles: require('../assets/images/icon_collectible.png'),
+  imgEmptyBox: require('../assets/images/empty_box.png'),
+  arrowBack: require('../assets/images/arrow_back.png'),
+  arrowForward: require('../assets/images/arrow_forward.png'),
+  iconRefresh: require('../assets/images/icon_refresh.png'),
+  iconShare: require('../assets/images/ic_share.png'),
+  logoBTC: require('../assets/images/logo_bitcoin.png'),
+  logoETH: require('../assets/images/logo_eth.png'),
+  imgAnalytics: require('../assets/images/img_analytics.png')
 }

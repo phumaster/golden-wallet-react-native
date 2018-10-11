@@ -3,15 +3,12 @@ import React, { Component } from 'react'
 import {
   View,
   TouchableWithoutFeedback,
-  Dimensions,
-  Text,
   Keyboard,
   Animated,
   StyleSheet,
   SafeAreaView,
   Platform
 } from 'react-native'
-import PropsType from 'prop-types'
 import { observer } from 'mobx-react/native'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import images from '../../../commons/images'
@@ -19,29 +16,22 @@ import AppStyle from '../../../commons/AppStyle'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import constant from '../../../commons/constant'
 import ActionButton from '../../../components/elements/ActionButton'
-import InputWithAction from '../../../components/elements/InputWithActionItem'
-import commonStyle from '../../../commons/commonStyles'
 import BottomButton from '../../../components/elements/BottomButton'
 import Checker from '../../../Handler/Checker'
-import AddressBookStore from '../AddressBookStore'
+import MainStore from '../../../AppStores/MainStore'
+import NameField from '../elements/NameField'
+import AddressField from '../elements/AddressField'
+import NavStore from '../../../AppStores/NavStore'
 
 const marginTop = LayoutUtils.getExtraTop()
-const { height } = Dimensions.get('window')
+// const { height } = Dimensions.get('window')
 
 @observer
 export default class AddAddressBookScreen extends Component {
-  static propTypes = {
-    navigation: PropsType.object
-  }
-
-  static defaultProps = {
-    navigation: null
-  }
-
   constructor(props) {
     super(props)
     this.traslateTop = new Animated.Value(0)
-    this.addressBookStore = new AddressBookStore()
+    this.addressBookStore = MainStore.addressBookStore
   }
 
   componentDidMount() {
@@ -56,18 +46,9 @@ export default class AddAddressBookScreen extends Component {
     this.keyboardDidHideListener.remove()
   }
 
-  onChangeTitle = (text) => {
-    this.addressBookStore.setTitle(text)
-  }
-
-  onChangeAddress = (text) => {
-    this.addressBookStore.setAddress(text)
-  }
-
   gotoScan = () => {
-    const { navigation } = this.props
     setTimeout(() => {
-      navigation.navigate('ScanQRCodeScreen', {
+      NavStore.pushToScreen('ScanQRCodeScreen', {
         title: 'Scan Address',
         marginTop,
         returnData: this.returnData.bind(this)
@@ -75,23 +56,29 @@ export default class AddAddressBookScreen extends Component {
     }, 300)
   }
 
+  goBack = () => {
+    NavStore.goBack()
+  }
+
   _runTraslateTop(toValue) {
-    Animated.timing(this.traslateTop, {
-      toValue,
-      duration: 180
-    }).start()
+    Animated.timing(
+      // Animate value over time
+      this.traslateTop, // The value to drive
+      {
+        toValue: -toValue, // Animate to final value of 1
+        duration: 250
+      }
+    ).start()
   }
 
   _keyboardDidShow(e) {
-    if (height <= 568) {
-      this._runTraslateTop(-80)
+    if (e.endCoordinates.screenY < 437 + marginTop + 15) {
+      this._runTraslateTop(437 + marginTop - e.endCoordinates.screenY + 15)
     }
   }
 
   _keyboardDidHide() {
-    if (height <= 568) {
-      this._runTraslateTop(0)
-    }
+    this._runTraslateTop(0)
   }
 
   returnData(codeScanned) {
@@ -103,60 +90,11 @@ export default class AddAddressBookScreen extends Component {
     if (this.addressBookStore.title === '') {
       setTimeout(() => this.nameField.focus(), 250)
     }
-    const resChecker = Checker.checkAddress(codeScanned)
+    const resChecker = Checker.checkAddressQR(codeScanned)
     if (resChecker && resChecker.length > 0) {
       [address] = resChecker
     }
     addressBookStore.setAddress(address)
-  }
-
-  _renderNameField = () => {
-    const { title, isErrorTitle } = this.addressBookStore
-    return (
-      <View style={{ marginTop: 15, marginHorizontal: 20 }}>
-        <Text style={{
-          fontSize: 16,
-          fontFamily: AppStyle.mainFontSemiBold,
-          color: AppStyle.titleDarkModeColor
-        }}
-        >Name
-        </Text>
-        <InputWithAction
-          ref={(ref) => { this.nameField = ref }}
-          style={{ marginTop: 10 }}
-          value={title}
-          onChangeText={this.onChangeTitle}
-        />
-        {isErrorTitle &&
-          <Text style={styles.errorText}>{constant.EXISTED_NAME_AB}</Text>
-        }
-      </View>
-    )
-  }
-
-  _renderAddressField = () => {
-    const { address, errorAddressBook } = this.addressBookStore
-    return (
-      <View style={{ marginTop: 20, marginHorizontal: 20 }}>
-        <Text style={{
-          fontSize: 16,
-          fontFamily: AppStyle.mainFontSemiBold,
-          color: AppStyle.titleDarkModeColor
-        }}
-        >Address
-        </Text>
-        <InputWithAction
-          style={{ marginTop: 10 }}
-          styleTextInput={commonStyle.fontAddress}
-          onChangeText={this.onChangeAddress}
-          needPasteButton
-          value={address}
-        />
-        {errorAddressBook !== '' &&
-          <Text style={styles.errorText}>{errorAddressBook}</Text>
-        }
-      </View>
-    )
   }
 
   _scanQRCodeButton() {
@@ -179,7 +117,7 @@ export default class AddAddressBookScreen extends Component {
     )
   }
 
-  _saveItem() {
+  _saveItem = () => {
     this.addressBookStore.saveAddressBook()
   }
 
@@ -188,46 +126,40 @@ export default class AddAddressBookScreen extends Component {
     return (
       <BottomButton
         disable={!isReadyCreate}
-        onPress={() => {
-          this._saveItem()
-        }}
+        onPress={this._saveItem}
       />
     )
   }
 
   render() {
-    const { navigation } = this.props
     const { traslateTop } = this
     return (
       <SafeAreaView style={{ flex: 1 }}>
         <TouchableWithoutFeedback style={{ flex: 1 }} onPress={() => { Keyboard.dismiss() }} >
-          <Animated.View
-            style={[
-              styles.container,
-              {
-                transform: [
-                  {
-                    translateY: traslateTop
-                  }]
-              }
-            ]}
-          >
-            <NavigationHeader
-              style={{ marginTop: 20 + marginTop }}
-              headerItem={{
-                title: 'Add New Address',
-                icon: null,
-                button: images.backButton
-              }}
-              action={() => {
-                navigation.goBack()
-              }}
-            />
-            {this._renderNameField()}
-            {this._renderAddressField()}
-            {this._scanQRCodeButton()}
+          <View style={styles.container}>
+            <Animated.View
+              style={[
+                styles.container,
+                {
+                  marginTop: traslateTop
+                }
+              ]}
+            >
+              <NavigationHeader
+                style={{ marginTop: 20 + marginTop }}
+                headerItem={{
+                  title: 'Add New Address',
+                  icon: null,
+                  button: images.backButton
+                }}
+                action={this.goBack}
+              />
+              <NameField ref={(ref) => { this.nameField = ref }} />
+              <AddressField />
+              {this._scanQRCodeButton()}
+            </Animated.View>
             {this._renderSaveButton()}
-          </Animated.View>
+          </View>
         </TouchableWithoutFeedback>
       </SafeAreaView>
     )
@@ -238,12 +170,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: AppStyle.backgroundDarkMode
-  },
-  errorText: {
-    fontSize: 14,
-    fontFamily: 'OpenSans-Semibold',
-    color: AppStyle.errorColor,
-    alignSelf: 'flex-start',
-    marginTop: 10
   }
 })

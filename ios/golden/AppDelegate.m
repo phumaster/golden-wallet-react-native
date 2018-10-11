@@ -10,6 +10,7 @@
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTRootView.h>
 #import <Fabric/Fabric.h>
+#import <CoreSpotlight/CoreSpotlight.h>
 #import <Crashlytics/Crashlytics.h>
 #import "RNSplashScreen.h"
 #import "RNFIRMessaging.h"
@@ -37,9 +38,28 @@
   [RNSplashScreen show];
   [FIRApp configure];
   [[UNUserNotificationCenter currentNotificationCenter] setDelegate:self];
-
+  [self spotlightSearch];
+  application.applicationIconBadgeNumber = 0;
   return YES;
 }
+
+-(void)spotlightSearch{
+
+  CSSearchableItemAttributeSet *searchableItemAttributeSet = [[CSSearchableItemAttributeSet alloc] initWithItemContentType:@"io.goldenwallet"];
+  searchableItemAttributeSet.contentDescription = @"Golden";
+  searchableItemAttributeSet.title = @"Golden";
+  searchableItemAttributeSet.displayName = @"Golden";
+  searchableItemAttributeSet.keywords = @[@"wallet", @"ethereum", @"golden wallet ", @"bitcoin", @"golden", @"crypto"];
+  //    UIImage *thumbnail = [UIImage imageNamed:@"starwars_icon"];
+  //    searchableItemAttributeSet.thumbnailData = UIImageJPEGRepresentation(thumbnail, 0.7);
+
+  CSSearchableItem *searchableItem = [[CSSearchableItem alloc] initWithUniqueIdentifier:@"io.goldenwallet" domainIdentifier:@"io.goldenwallet" attributeSet:searchableItemAttributeSet];
+
+  CSSearchableIndex *defaultSearchableIndex = [CSSearchableIndex defaultSearchableIndex];
+  [defaultSearchableIndex indexSearchableItems:@[searchableItem] completionHandler:^(NSError * _Nullable error) {
+  }];
+}
+
 
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center willPresentNotification:(UNNotification *)notification withCompletionHandler:(void (^)(UNNotificationPresentationOptions))completionHandler
 {
@@ -49,11 +69,13 @@
 #if defined(__IPHONE_11_0)
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void (^)(void))completionHandler
 {
+  UIApplication.sharedApplication.applicationIconBadgeNumber = 0;
   [RNFIRMessaging didReceiveNotificationResponse:response withCompletionHandler:completionHandler];
 }
 #else
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center didReceiveNotificationResponse:(UNNotificationResponse *)response withCompletionHandler:(void(^)())completionHandler
 {
+  UIApplication.sharedApplication.applicationIconBadgeNumber = 0;
   [RNFIRMessaging didReceiveNotificationResponse:response withCompletionHandler:completionHandler];
 }
 #endif
@@ -66,5 +88,4 @@
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(nonnull NSDictionary *)userInfo fetchCompletionHandler:(nonnull void (^)(UIBackgroundFetchResult))completionHandler{
   [RNFIRMessaging didReceiveRemoteNotification:userInfo fetchCompletionHandler:completionHandler];
 }
-
 @end

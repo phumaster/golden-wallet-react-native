@@ -10,9 +10,9 @@ import {
 import { observer } from 'mobx-react/native'
 import HapticHandler from '../../Handler/HapticHandler'
 import NotificationStore from '../../AppStores/stores/Notification'
-import constant from '../../commons/constant'
 import AppStyle from '../../commons/AppStyle'
 import LayoutUtils from '../../commons/LayoutUtils'
+import NavStore from '../../AppStores/NavStore'
 
 const { width } = Dimensions.get('window')
 const { heightNotif } = LayoutUtils
@@ -25,19 +25,19 @@ export default class NotificationInApp extends Component {
 
   onPress = () => {
     this.hideToast()
-    NotificationStore.gotoTransactionList()
+    NotificationStore.gotoTransaction()
   }
 
-  get styleText() {
-    const { notif } = NotificationStore
-    if (!notif) {
-      return {}
-    }
-    if (notif.type === constant.SENT) {
-      return { color: AppStyle.colorDown }
-    }
-    return { color: AppStyle.colorUp }
-  }
+  // get styleText() {
+  //   const { notif } = NotificationStore
+  //   if (!notif) {
+  //     return {}
+  //   }
+  //   if (notif.type === constant.SENT) {
+  //     return { color: AppStyle.colorDown }
+  //   }
+  //   return { color: AppStyle.colorUp }
+  // }
 
   get content() {
     const { notif } = NotificationStore
@@ -47,8 +47,38 @@ export default class NotificationInApp extends Component {
     return notif.content
   }
 
+  get textStyleNotif() {
+    const { notif } = NotificationStore
+    if (!notif) {
+      return {}
+    }
+    if (notif.from) {
+      if (notif.address.toLowerCase() === notif.from.toLowerCase()) return { color: AppStyle.colorDown }
+    } else if (notif.inputs) {
+      return this.isSentBTC
+    }
+    return { color: AppStyle.colorUp }
+  }
+
+  get isSentBTC() {
+    const { notif } = NotificationStore
+    const { address, inputs } = notif
+    let sent = true
+    for (let i = 0; i < inputs.length; i++) {
+      if (inputs[i].prev_out.addr !== address) {
+        sent = false
+        break
+      }
+    }
+    return sent
+  }
+
   get shouldShowNotifInApp() {
     const { notif, isInitFromNotification, appState } = NotificationStore
+    const { currentRouteName } = NavStore
+    if (currentRouteName === '' || currentRouteName === 'UnlockScreen') {
+      return false
+    }
     if (!notif) {
       return false
     }
@@ -56,7 +86,7 @@ export default class NotificationInApp extends Component {
       return false
     }
     if (appState === 'active') {
-      return true
+      return notif.from || notif.inputs
     }
     return false
   }
@@ -78,7 +108,7 @@ export default class NotificationInApp extends Component {
   }
 
   render() {
-    const { styleText, content, shouldShowNotifInApp } = this
+    const { textStyleNotif, content, shouldShowNotifInApp } = this
     if (shouldShowNotifInApp) {
       this.showToast()
     }
@@ -93,7 +123,7 @@ export default class NotificationInApp extends Component {
             ]
           }]}
         >
-          <Text style={[styles.copyText, styleText]}>{content}</Text>
+          <Text style={[styles.copyText, textStyleNotif]}>{content}</Text>
         </Animated.View>
       </TouchableWithoutFeedback>
     )

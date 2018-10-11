@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
   Keyboard,
   Platform
 } from 'react-native'
@@ -13,8 +12,7 @@ import LayoutUtils from '../../commons/LayoutUtils'
 import AppStyle from '../../commons/AppStyle'
 import constant from '../../commons/constant'
 
-const { height } = Dimensions.get('window')
-const isIPX = height === 812
+const isIPX = LayoutUtils.getIsIPX()
 const extraBottom = LayoutUtils.getExtraBottom()
 
 export default class BottomButton extends Component {
@@ -43,12 +41,23 @@ export default class BottomButton extends Component {
   }
 
   componentDidMount() {
-
+    this.isPress = false
   }
 
   componentWillUnmount() {
     this.keyboardDidShowListener.remove()
     this.keyboardDidHideListener.remove()
+  }
+
+  onPress = () => {
+    if (this.isPress) {
+      return
+    }
+    this.isPress = true
+    const { onPress } = this.props
+    Keyboard.dismiss()
+    setTimeout(() => { this.isPress = false }, 500)
+    onPress()
   }
 
   _runKeyboardAnim(toValue) {
@@ -92,7 +101,7 @@ export default class BottomButton extends Component {
   }
 
   render() {
-    const { onPress, text, disable } = this.props
+    const { text, disable } = this.props
     return (
       <Animated.View style={{
         position: 'absolute',
@@ -106,10 +115,7 @@ export default class BottomButton extends Component {
       >
         <TouchableOpacity
           disabled={disable}
-          onPress={() => {
-            Keyboard.dismiss()
-            onPress()
-          }}
+          onPress={this.onPress}
           style={styles.saveButton}
         >
           <Text style={{ fontSize: 16, color: disable ? AppStyle.secondaryTextColor : AppStyle.mainColor, fontFamily: 'OpenSans-Semibold' }}>
@@ -123,7 +129,7 @@ export default class BottomButton extends Component {
 
 const styles = StyleSheet.create({
   saveButton: {
-    height: 50,
+    paddingVertical: 13,
     alignItems: 'center',
     justifyContent: 'center'
   }

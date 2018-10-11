@@ -4,22 +4,23 @@ import {
   StyleSheet,
   Text,
   Dimensions,
-  FlatList
+  FlatList,
+  SafeAreaView
 } from 'react-native'
-import PropTypes from 'prop-types'
 import { observer } from 'mobx-react/native'
+import PropTypes from 'prop-types'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
-import ActionButton from '../../../components/elements/ActionButton'
 import ChooseAddressItem from '../elements/ChooseAddressItem'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import images from '../../../commons/images'
-import constant from '../../../commons/constant'
 import AppStyle from '../../../commons/AppStyle'
 import MainStore from '../../../AppStores/MainStore'
+import BottomButton from '../../../components/elements/BottomButton'
+import NavStore from '../../../AppStores/NavStore'
 
 const marginTop = LayoutUtils.getExtraTop()
-const extraBottom = LayoutUtils.getExtraBottom()
 const { width } = Dimensions.get('window')
+const isIPX = LayoutUtils.getIsIPX()
 
 @observer
 export default class ChooseAddressScreen extends Component {
@@ -36,71 +37,68 @@ export default class ChooseAddressScreen extends Component {
     this.importMnemonicStore = MainStore.importMnemonicStore
   }
 
+  onBack = () => {
+    NavStore.goBack()
+  }
+
   handleSelect = (w) => {
     this.importMnemonicStore.setSelectedWallet(w)
   }
 
   handleUnlock = () => {
-    this.importMnemonicStore.gotoEnterName()
+    const { navigation } = this.props
+    const { coin } = navigation.state.params
+    this.importMnemonicStore.gotoEnterName(coin)
   }
 
+  renderItem = ({ item, index }) =>
+    (
+      <ChooseAddressItem
+        item={item}
+        index={index}
+        onItemSelect={this.handleSelect}
+      />
+    )
+
   render() {
-    const { navigation } = this.props
     const data = this.importMnemonicStore.mnemonicWallets
+    const { selectedWallet } = this.importMnemonicStore
 
     return (
-      <View
-        style={[styles.container]}
-      >
-        <NavigationHeader
-          style={{ marginTop: marginTop + 20, width }}
-          headerItem={{
-            title: null,
-            icon: null,
-            button: images.backButton
-          }}
-          action={() => {
-            navigation.goBack()
-          }}
-        />
-        <Text style={styles.description}>
-          Please select the address you would like to interact with.
-        </Text>
-        <View style={styles.rowTitle}>
-          <Text style={styles.title}>Your Address</Text>
-          <Text style={styles.title}>Balance</Text>
-        </View>
-        <View style={styles.line} />
-        <FlatList
-          style={{ flex: 1 }}
-          data={data}
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item, index) => `${index}`}
-          renderItem={({ item, index }) => {
-            return (
-              <ChooseAddressItem
-                item={item}
-                index={index}
-                onItemSelect={this.handleSelect}
-              />
-            )
-          }}
-        />
-        <View style={styles.actionButton}>
-          <ActionButton
-            style={{ height: 40, paddingHorizontal: 17, shadowOpacity: 0.2 }}
-            buttonItem={{
-              name: constant.UNLOCK_YOUR_WALLET,
+      <SafeAreaView style={{ flex: 1 }}>
+        <View
+          style={[styles.container]}
+        >
+          <NavigationHeader
+            style={{ marginTop: marginTop + 20, width }}
+            headerItem={{
+              title: null,
               icon: null,
-              background: '#121734'
-            }
-            }
-            imgBackgroundStyle={{ width: 169 }}
-            styleText={{ color: AppStyle.mainColor }}
-            action={this.handleUnlock}
+              button: images.backButton
+            }}
+            action={this.onBack}
+          />
+          <Text style={styles.description}>
+            Please select the address you would like to interact with.
+          </Text>
+          <View style={styles.rowTitle}>
+            <Text style={styles.title}>Your Address</Text>
+            <Text style={styles.title}>Balance</Text>
+          </View>
+          <View style={styles.line} />
+          <FlatList
+            style={{ flex: 1, marginBottom: isIPX ? 124 : 90 }}
+            data={data}
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => `${index}`}
+            renderItem={this.renderItem}
+          />
+          <BottomButton
+            onPress={this.handleUnlock}
+            disable={!selectedWallet}
           />
         </View>
-      </View>
+      </SafeAreaView>
     )
   }
 }
@@ -117,11 +115,6 @@ const styles = StyleSheet.create({
     fontFamily: 'OpenSans-Bold',
     fontSize: 18,
     color: AppStyle.mainTextColor
-  },
-  actionButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20 + extraBottom
   },
   rowTitle: {
     flexDirection: 'row',

@@ -2,10 +2,13 @@ import { getStatusBarHeight } from 'react-native-status-bar-height'
 import { Dimensions, Platform } from 'react-native'
 
 const { width, height } = Dimensions.get('window')
-const isIPX = height === 812
+const isIPX = Platform.OS === 'ios' && height >= 812
 
 export default class LayoutUtils {
   static getExtraTop() {
+    if (isIPX) {
+      return 44
+    }
     return getStatusBarHeight()
   }
 
@@ -23,5 +26,13 @@ export default class LayoutUtils {
 
   static get heightNotif() {
     return isIPX ? 84 : 60
+  }
+
+  static isSmallScreen() {
+    return height < 569
+  }
+
+  static getIsIPX() {
+    return isIPX
   }
 }

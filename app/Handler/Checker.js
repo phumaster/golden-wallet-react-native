@@ -1,14 +1,62 @@
+import { chainNames } from '../Utils/WalletAddresses'
+
 class Checker {
-  static checkAddress(address) {
+  static checkAddress(address, coin) {
+    if (coin === chainNames.ETH) {
+      return this.checkAddressETH(address)
+    } else if (coin === chainNames.BTC) {
+      return this.checkAddressBTC(address)
+    }
+    // if (address.length !== validateLength) {
+    //   return false
+    // }
+    // return address.match(regx)
+  }
+  static checkAddressBTC(address) {
+    if (address.length < 25 || address.length > 34) {
+      return false
+    }
+    const regx = /^[0-9A-Za-z]{25,34}$/
+    return address.match(regx)
+  }
+
+  static checkAddressETH(address) {
     const regx = /^0x[0-9A-Fa-f]{40}$/
+    if (address.length != 42) {
+      return false
+    }
+    return address.match(regx)
+  }
+
+  static checkWIFBTC(wif) {
+    if (wif.length !== 52) {
+      return false
+    }
+    const regx = /^[0-9A-Za-z]{52}$/
+    return wif.match(regx)
+  }
+
+  static checkAddressQR(address, coin = chainNames.ETH) {
+    let regx = ''
+    if (coin === chainNames.ETH) {
+      regx = /^0x[0-9A-Fa-f]{40}$/
+    } else if (coin === chainNames.BTC) {
+      regx = /^[0-9A-Za-z]{34}$/
+    }
+    return address.match(regx)
+  }
+  static checkAddressQRBTC(address) {
+    const regx = /[0-9A-Za-z]{34}/
     return address.match(regx)
   }
   static checkPrivateKey(key) {
-    return key.length === 64
+    const regx = /^[0-9A-Fa-f]{64}$/
+    return key.match(regx)
   }
   static checkWalletIsExist(wallets, address) {
     const isExist = wallets.find((w) => {
-      return w.address.toLowerCase() === address.toLowerCase()
+      if (w.type === 'ethereum') return w.address.toLowerCase() === address.toLowerCase()
+      return w.address === address
     })
     return isExist
   }

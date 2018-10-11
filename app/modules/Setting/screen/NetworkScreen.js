@@ -1,14 +1,13 @@
 import React, { Component } from 'react'
 import {
   FlatList,
-  Text,
   StyleSheet,
+  SafeAreaView,
   View,
-  SafeAreaView
+  Text
 } from 'react-native'
 import PropsType from 'prop-types'
 import { observer } from 'mobx-react/native'
-import { NavigationActions } from 'react-navigation'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import Images from '../../../commons/images'
 import AppStyle from '../../../commons/AppStyle'
@@ -19,10 +18,11 @@ import MainStore from '../../../AppStores/MainStore'
 import Config from '../../../AppStores/stores/Config'
 import constant from '../../../commons/constant'
 import NavStore from '../../../AppStores/NavStore'
+import SwitchButton from '../elements/SwtichButton'
+import MixpanelHandler from '../../../Handler/MixpanelHandler'
 
 const marginTop = LayoutUtils.getExtraTop()
 const networks = [
-  'mainnet',
   'ropsten',
   'rinkeby',
   'kovan'
@@ -40,8 +40,24 @@ export default class NetworkScreen extends Component {
 
   onItemPress = (nw) => {
     MainStore.appState.setConfig(new Config(nw, constant.INFURA_API_KEY))
+    MainStore.appState.mixpanleHandler.track(MixpanelHandler.eventName.ACTION_CHANGE_NETWORK)
     MainStore.appState.save()
-    NavStore.goBack()
+  }
+
+  onStateChange = (isActive) => {
+    if (isActive) {
+      MainStore.appState.setConfig(new Config(Config.networks.ropsten, constant.INFURA_API_KEY))
+      MainStore.appState.save()
+    } else {
+      MainStore.appState.setConfig(new Config(Config.networks.mainnet, constant.INFURA_API_KEY))
+      MainStore.appState.save()
+    }
+    MainStore.appState.mixpanleHandler.track(MixpanelHandler.eventName.ACTION_CHANGE_NETWORK)
+  }
+
+  get enableSwitch() {
+    const { config } = MainStore.appState
+    return config.network === Config.networks.mainnet
   }
 
   _renderNetworkItem = ({ item, index }) =>
@@ -54,6 +70,7 @@ export default class NetworkScreen extends Component {
       <FlatList
         style={{ flex: 1, marginTop: 15 }}
         data={networks}
+        ListHeaderComponent={<Text style={styles.titleText}>Ethereum</Text>}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(_, index) => `${index}`}
         renderItem={this._renderNetworkItem}
@@ -61,20 +78,13 @@ export default class NetworkScreen extends Component {
     )
   }
 
-  _renderIntroduction() {
-    const introStr = 'Changing network while transactions are pending may cause problems'
-    return (
-      <View style={{ paddingHorizontal: 40, marginTop: 15 }}>
-        <Text style={[styles.textSubtitle, { textAlign: 'center' }]}>
-          {introStr}
-        </Text>
-      </View>
-    )
+  goBack = () => {
+    NavStore.goBack()
   }
 
   render() {
-    const { navigation } = this.props
     const loading = false
+    const { enableSwitch } = this
     return (
       <SafeAreaView style={styles.container}>
         <NavigationHeader
@@ -84,12 +94,16 @@ export default class NetworkScreen extends Component {
             icon: null,
             button: Images.backButton
           }}
-          action={() => {
-            navigation.dispatch(NavigationActions.back())
-          }}
+          action={this.goBack}
         />
-        {/* {this._renderIntroduction()} */}
-        {this._renderNetworkList()}
+        <View style={styles.switchNetwork}>
+          <Text style={styles.testnet}>Testing Network</Text>
+          <SwitchButton
+            enable={!enableSwitch}
+            onStateChange={this.onStateChange}
+          />
+        </View>
+        {!enableSwitch && this._renderNetworkList()}
         {loading &&
           <Spinner />
         }
@@ -103,9 +117,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: AppStyle.backgroundDarkMode
   },
-  textSubtitle: {
+  switchNetwork: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    justifyContent: 'space-between',
+    backgroundColor: AppStyle.backgroundTextInput,
+    marginTop: 20
+  },
+  testnet: {
+    fontFamily: 'OpenSans-Semibold',
     fontSize: 14,
-    fontFamily: AppStyle.mainFontSemiBold,
     color: AppStyle.secondaryTextColor
+  },
+  titleText: {
+    fontFamily: 'OpenSans-Semibold',
+    fontSize: 16,
+    color: AppStyle.mainTextColor,
+    marginLeft: 20,
+    marginBottom: 20
   }
 })

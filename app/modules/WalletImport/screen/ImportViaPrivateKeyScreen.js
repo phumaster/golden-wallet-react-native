@@ -4,16 +4,13 @@ import {
   StyleSheet,
   Text,
   Dimensions,
-  Platform,
-  Keyboard,
-  Animated,
-  TouchableWithoutFeedback,
   TouchableOpacity,
   Clipboard,
   Image,
-  SafeAreaView
+  SafeAreaView,
+  Platform,
+  TextInput
 } from 'react-native'
-import PropTypes from 'prop-types'
 import { observer } from 'mobx-react/native'
 import NavigationHeader from '../../../components/elements/NavigationHeader'
 import ActionButton from '../../../components/elements/ActionButton'
@@ -28,70 +25,40 @@ import Spinner from '../../../components/elements/Spinner'
 import ImportPrivateKeyStore from '../stores/ImportPrivateKeyStore'
 import InputWithAction from '../../../components/elements/InputWithActionItem'
 import commonStyle from '../../../commons/commonStyles'
+import KeyboardView from '../../../components/elements/KeyboardView'
+import TouchOutSideDismissKeyboard from '../../../components/elements/TouchOutSideDismissKeyboard'
+import MainStore from '../../../AppStores/MainStore'
 
 const marginTop = LayoutUtils.getExtraTop()
 const { width } = Dimensions.get('window')
 
 @observer
 export default class ImportViaPrivateKeyScreen extends Component {
-  static propTypes = {
-    navigation: PropTypes.object
-  }
-
-  static defaultProps = {
-    navigation: {}
-  }
-
   constructor(props) {
     super(props)
-    this.extraHeight = new Animated.Value(0)
-    this.importPrivateKeyStore = new ImportPrivateKeyStore()
+    MainStore.importPrivateKeyStore = new ImportPrivateKeyStore()
+    this.importPrivateKeyStore = MainStore.importPrivateKeyStore
   }
 
-  componentWillMount() {
-    const show = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow'
-    const hide = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide'
-    this.keyboardDidShowListener = Keyboard.addListener(show, e => this._keyboardDidShow(e))
-    this.keyboardDidHideListener = Keyboard.addListener(hide, e => this._keyboardDidHide(e))
-  }
-
-  componentDidMount() {
-  }
-
-  componentWillUnmount() {
-    this.keyboardDidShowListener.remove()
-    this.keyboardDidHideListener.remove()
+  onBack = () => {
+    NavStore.goBack()
   }
 
   onChangePrivKey = (text) => {
     this.importPrivateKeyStore.setPrivateKey(text)
+    const { isErrorPrivateKey } = this.importPrivateKeyStore
+    // if (isErrorPrivateKey) {
+    //   // this.privKeyField.shake()
+    // }
   }
 
   onChangeName = (text) => {
     this.importPrivateKeyStore.setTitle(text)
   }
 
-  _runExtraHeight(toValue) {
-    Animated.timing(
-      // Animate value over time
-      this.extraHeight, // The value to drive
-      {
-        toValue: -toValue, // Animate to final value of 1
-        duration: 250,
-        useNativeDriver: true
-      }
-    ).start()
-  }
-
-  _keyboardDidShow(e) {
-    if (e.endCoordinates.screenY < 437 + marginTop) {
-      this._runExtraHeight(437 + marginTop - e.endCoordinates.screenY)
-    }
-  }
-
-  _keyboardDidHide(e) {
-    this._runExtraHeight(0)
-  }
+  onFocusName = () => this.importPrivateKeyStore.setFocusField('name')
+  onFocusPrivateKey = () => this.importPrivateKeyStore.setFocusField('private_key')
+  onBlurTextField = () => this.importPrivateKeyStore.setFocusField('')
 
   returnData(codeScanned) {
     this.importPrivateKeyStore.setPrivateKey(codeScanned)
@@ -132,23 +99,18 @@ export default class ImportViaPrivateKeyScreen extends Component {
     )
   }
 
-  _handleConfirm = async () => {
-    const { privateKey } = this.importPrivateKeyStore
-    if (privateKey === '') {
-      NavStore.popupCustom.show('Private key can not be empty')
-      return
-    }
-    if (!Checker.checkPrivateKey(privateKey)) {
-      NavStore.popupCustom.show('Invalid private key')
-      return
-    }
-    this.importPrivateKeyStore.create()
+
+
+  goToEnterName = () => {
+    const { navigation } = this.props
+    const { coin } = navigation.state.params
+
+    NavStore.pushToScreen('EnterNameViaPrivateKey', { coin })
   }
 
   gotoScan = () => {
-    const { navigation } = this.props
     setTimeout(() => {
-      navigation.navigate('ScanQRCodeScreen', {
+      NavStore.pushToScreen('ScanQRCodeScreen', {
         title: 'Scan Private Key',
         marginTop,
         returnData: this.returnData.bind(this)
@@ -157,21 +119,14 @@ export default class ImportViaPrivateKeyScreen extends Component {
   }
 
   render() {
-    const { navigation } = this.props
     const {
-      privateKey, loading, title, isErrorTitle, isErrorPrivateKey, isReadyCreate
+      privateKey, loading, isErrorPrivateKey, isValidPrivateKey
     } = this.importPrivateKeyStore
     return (
       <SafeAreaView style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss() }}>
+        <TouchOutSideDismissKeyboard>
           <View style={styles.container}>
-            <Animated.View
-              style={[styles.container, {
-                transform: [
-                  { translateY: this.extraHeight }
-                ]
-              }]}
-            >
+            <KeyboardView style={styles.container}>
               <NavigationHeader
                 style={{ marginTop: marginTop + 20, width }}
                 headerItem={{
@@ -179,33 +134,28 @@ export default class ImportViaPrivateKeyScreen extends Component {
                   icon: null,
                   button: images.backButton
                 }}
-                action={() => {
-                  navigation.goBack()
-                }}
+                action={this.onBack}
               />
-              <Text style={[styles.titleText, { marginTop: 15 }]}>Name</Text>
-              <InputWithAction
-                ref={(ref) => { this.nameField = ref }}
-                style={{ width: width - 40, marginTop: 10 }}
-                value={title}
-                onChangeText={this.onChangeName}
-              />
-              {isErrorTitle &&
-                <Text style={styles.errorText}>{constant.EXISTED_NAME}</Text>
-              }
-              <Text style={[styles.titleText, { marginTop: 20 }]}>Private Key</Text>
-              <InputWithAction
-                style={{ width: width - 40, marginTop: 10 }}
-                onChangeText={this.onChangePrivKey}
-                needPasteButton
-                styleTextInput={commonStyle.fontAddress}
-                value={privateKey}
-              />
+              <View style={{ marginTop: 25 }}>
+                <TextInput
+                  underlineColorAndroid="transparent"
+                  keyboardAppearance="dark"
+                  autoCorrect={false}
+                  multiline
+                  style={[
+                    styles.textInput
+                  ]}
+                  onChangeText={this.onChangePrivKey}
+                  value={privateKey}
+                />
+                {privateKey === '' && this._renderPasteButton()}
+                {privateKey !== '' && this._renderClearButton()}
+              </View>
               {isErrorPrivateKey &&
                 <Text style={styles.errorText}>{constant.INVALID_PRIVATE_KEY}</Text>
               }
               <ActionButton
-                style={{ height: 40, marginTop: 30 }}
+                style={{ height: 40, marginTop: 25 }}
                 buttonItem={{
                   name: constant.SCAN_QR_CODE,
                   icon: images.iconQrCode,
@@ -215,17 +165,17 @@ export default class ImportViaPrivateKeyScreen extends Component {
                 styleIcon={{ tintColor: AppStyle.mainTextColor }}
                 action={this.gotoScan}
               />
-            </Animated.View>
+            </KeyboardView>
             <BottomButton
-              disable={!isReadyCreate}
-              onPress={this._handleConfirm}
+              disable={!isValidPrivateKey}
+              onPress={this.goToEnterName}
             />
             {loading &&
               <Spinner />
             }
           </View>
-        </TouchableWithoutFeedback>
-      </SafeAreaView>
+        </TouchOutSideDismissKeyboard>
+      </SafeAreaView >
     )
   }
 }
@@ -234,6 +184,19 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     flex: 1
+  },
+  textInput: {
+    height: 182,
+    width: width - 40,
+    backgroundColor: '#14192D',
+    borderRadius: 14,
+    color: '#7F8286',
+    fontFamily: Platform.OS === 'ios' ? 'OpenSans' : 'OpenSans-Regular',
+    fontSize: 18,
+    paddingHorizontal: 27,
+    paddingTop: 50,
+    paddingBottom: 50,
+    textAlignVertical: 'center'
   },
   pasteText: {
     color: AppStyle.mainColor,
@@ -252,7 +215,7 @@ const styles = StyleSheet.create({
     fontFamily: 'OpenSans-Semibold',
     color: AppStyle.errorColor,
     alignSelf: 'flex-start',
-    marginLeft: 20,
-    marginTop: 10
+    marginTop: 10,
+    marginLeft: 20
   }
 })

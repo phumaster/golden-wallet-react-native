@@ -18,6 +18,18 @@ export default {
     apiURL: () => `https://ethgasstation.info`
   },
   Skylab: {
-    apiURL: () => `http://wallet.skylab.vn`
+    apiURL: () => `http://wallet.skylab.vn`,
+    privacyURL: () => `https://goldenwallet.io/privacy`,
+    termsURL: () => `https://goldenwallet.io/terms`
+  },
+  OpenSea: {
+    apiURL: () => `https://opensea-api.herokuapp.com`
+  },
+  BlockExplorer: {
+    apiURL: () => `https://blockexplorer.com`
+  },
+  BlockChainInfo: {
+    apiURL: () => `https://blockchain.info`,
+    webURL: () => `https://www.blockchain.com`
   }
 }

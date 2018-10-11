@@ -7,8 +7,7 @@ import {
   StyleSheet,
   SafeAreaView,
   View,
-  Dimensions,
-  TouchableWithoutFeedback
+  Dimensions
 } from 'react-native'
 import PropsType from 'prop-types'
 import { observer } from 'mobx-react/native'
@@ -19,13 +18,11 @@ import AppStyle from '../../../commons/AppStyle'
 import LayoutUtils from '../../../commons/LayoutUtils'
 import ManageWalletItem from '../elements/ManageWalletItem'
 import MainStore from '../../../AppStores/MainStore'
-import ActionSheetCustom from '../../../components/elements/ActionSheetCustom'
 import NavStore from '../../../AppStores/NavStore'
 import ManageWalletStore from '../stores/ManageWalletStore'
-import NotificationStore from '../../../AppStores/stores/Notification'
 
 const marginTop = LayoutUtils.getExtraTop()
-const { width } = Dimensions.get('window')
+const { height } = Dimensions.get('window')
 
 @observer
 export default class ListWalletScreen extends Component {
@@ -42,80 +39,40 @@ export default class ListWalletScreen extends Component {
     this.manageWalletStore = new ManageWalletStore()
   }
 
-  onActionPress = (index) => {
-    this.selectedWallet = this.wallets[index]
-    this.actionSheet.show()
+  getPrivateKey(ds) {
+    this.selectedWallet.setSecureDS(ds)
+    return this.selectedWallet.derivePrivateKey()
   }
 
-  onCancelAction = () => {
-    this.actionSheet.hide()
-  }
-
-  onEdit = () => {
-    this.actionSheet.hide(() => {
-      NavStore.popupCustom.show(
-        'Wallet Name',
-        [
-          {
-            text: 'Cancel',
-            onClick: () => {
-              NavStore.popupCustom.hide()
-            }
-          },
-          {
-            text: 'OK',
-            onClick: async (text) => {
-              this.selectedWallet.title = text
-              await this.manageWalletStore.editWallet(this.selectedWallet)
-              NotificationStore.addWallets()
-              NavStore.popupCustom.hide()
-            }
-          }
-        ],
-        'Enter your wallet name',
-        'input',
-        false,
-        this.selectedWallet.title,
-        true
-      )
-    })
-  }
-
-  onDelete = () => {
-    this.actionSheet.hide(() => {
-      NavStore.popupCustom.show(
-        'Are you sure you want to remove this wallet ?',
-        [
-          {
-            text: 'Cancel',
-            onClick: () => {
-              NavStore.popupCustom.hide()
-            }
-          },
-          {
-            text: 'Remove',
-            onClick: async () => {
-              const { wallets, selectedWallet } = MainStore.appState
-              const index = wallets.indexOf(selectedWallet)
-              if (index === wallets.length - 1) {
-                MainStore.appState.setSelectedWallet(null)
-              }
-              await this.manageWalletStore.removeWallet(this.selectedWallet)
-              NavStore.popupCustom.hide()
-            }
-          }
-        ]
-      )
-    })
+  get shouldShowExportPrivateKey() {
+    if (!this.selectedWallet.importType) {
+      return MainStore.appState.didBackup
+    }
+    return this.selectedWallet.importType !== 'Address'
   }
 
   get wallets() {
     return MainStore.appState.wallets
   }
 
+  goToCreateWallet = () => {
+    const { navigation } = this.props
+    const { wallets } = this
+    navigation.navigate('CreateWalletStack', {
+      returnData: this.returnData,
+      index: wallets.length
+    })
+  }
   _renderItem = ({ item, index }) =>
     (
-      <ManageWalletItem index={index} action={() => { this.onActionPress(index) }} />
+      <ManageWalletItem
+        index={index}
+        onPress={() => {
+          NavStore.pushToScreen('ManageWalletDetailScreen', {
+            wallet: this.wallets[index]
+          })
+        }}
+      />
     )
 
   returnData = (isCreateSuccess, index, isCreate) => {
@@ -125,12 +82,41 @@ export default class ListWalletScreen extends Component {
     }
   }
 
+  _renderNoWalletView() {
+    return (
+      <View style={{ alignItems: 'center', flex: 1, marginBottom: height * 0.03 }}>
+        <Image
+          source={images.noWalletImage}
+          style={styles.contactImageStyle}
+        />
+        <Text style={{
+          fontSize: 26,
+          fontFamily: AppStyle.mainFontBold,
+          marginTop: height * 0.07,
+          color: AppStyle.titleDarkModeColor
+        }}
+        >No wallets yet
+        </Text>
+        <Text style={{
+          fontSize: 18,
+          fontFamily: AppStyle.mainFontSemiBold,
+          marginTop: height * 0.02,
+          color: '#8A8D97'
+        }}
+        >
+          Get started by adding your first one.
+        </Text>
+      </View>
+    )
+  }
+
   _renderAddressList() {
     const { wallets } = this
     return (
       <FlatList
         style={{ flex: 1, marginTop: 15 }}
         data={wallets}
+        ListEmptyComponent={this._renderNoWalletView()}
         showsHorizontalScrollIndicator={false}
         keyExtractor={(item, index) => item.address}
         renderItem={this._renderItem}
@@ -144,22 +130,21 @@ export default class ListWalletScreen extends Component {
   }
 
   _renderFooter = () => {
-    const { navigation } = this.props
     const { wallets } = this
-    if (wallets.length === 5) {
+    let backgroundColor
+    if (wallets.length === 10) {
       return null
+    }
+    if (wallets.length === 0) {
+      backgroundColor = { backgroundColor: AppStyle.backgroundColor }
     }
     return (
       <TouchableOpacity
         style={[
-          styles.addContactButtonStyle
+          styles.addContactButtonStyle,
+          backgroundColor
         ]}
-        onPress={() => {
-          navigation.navigate('CreateWalletStack', {
-            returnData: this.returnData,
-            index: wallets.length
-          })
-        }}
+        onPress={this.goToCreateWallet}
       >
         <Image
           source={images.icon_addBold}
@@ -179,37 +164,25 @@ export default class ListWalletScreen extends Component {
     )
   }
 
-  render() {
+  goBack = () => {
     const { navigation } = this.props
+    navigation.dispatch(NavigationActions.back())
+  }
+
+  render() {
     return (
-      <TouchableWithoutFeedback onPress={() => { this.actionSheet.hide() }}>
-        <SafeAreaView style={styles.container}>
-          <NavigationHeader
-            style={{ marginTop: 20 + marginTop }}
-            headerItem={{
-              title: 'Manage Wallets',
-              icon: null,
-              button: images.backButton
-            }}
-            action={() => {
-              navigation.dispatch(NavigationActions.back())
-            }}
-          />
-          {this._renderContentView()}
-          <ActionSheetCustom ref={(ref) => { this.actionSheet = ref }} onCancel={this.onCancelAction}>
-            <TouchableOpacity onPress={this.onEdit}>
-              <View style={[styles.actionButton, { borderBottomWidth: 1, borderColor: AppStyle.borderLinesSetting }]}>
-                <Text style={[styles.actionText, { color: '#4A90E2' }]}>Edit Wallet Name</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={this.onDelete}>
-              <View style={styles.actionButton}>
-                <Text style={[styles.actionText, { color: AppStyle.errorColor }]}>Remove Wallet</Text>
-              </View>
-            </TouchableOpacity>
-          </ActionSheetCustom>
-        </SafeAreaView >
-      </TouchableWithoutFeedback>
+      <SafeAreaView style={styles.container}>
+        <NavigationHeader
+          style={{ marginTop: 20 + marginTop }}
+          headerItem={{
+            title: 'Manage Wallets',
+            icon: null,
+            button: images.backButton
+          }}
+          action={this.goBack}
+        />
+        {this._renderContentView()}
+      </SafeAreaView >
     )
   }
 }
@@ -231,16 +204,9 @@ const styles = StyleSheet.create({
     fontFamily: AppStyle.mainFontSemiBold,
     fontSize: 18
   },
-  actionButton: {
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 5,
-    width: width - 40,
-    backgroundColor: AppStyle.backgroundDarkBlue
-  },
-  actionText: {
-    fontSize: 16,
-    fontFamily: 'OpenSans-Semibold'
+  contactImageStyle: {
+    resizeMode: 'contain',
+    width: 168,
+    marginTop: height * 0.05
   }
 })
